@@ -1,0 +1,54 @@
+# Test file for Visual Studio (open it and click "Send request" above each request).
+# 1) Change the port to yours (see the URL in the browser when you press F5)
+@host = https://localhost:7296
+
+### 1) Login as the seeded admin
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{ "email": "admin@market.local", "password": "Admin@12345" }
+
+### 2) Paste the accessToken from the response here:
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwiZW1haWwiOiJhZG1pbkBtYXJrZXQubG9jYWwiLCJuYW1lIjoiU3RvcmUgQWRtaW4iLCJqdGkiOiIzMTAyNmRkMC0wZjJhLTRlM2QtYTNhOS1mNjRjN2RlOTNiNTAiLCJyb2xlIjoiQWRtaW4iLCJleHAiOjE3OTA4NjA2MTUsImlzcyI6Ik1hcmtldFdlcCIsImF1ZCI6Ik1hcmtldFdlcENsaWVudHMifQ.MGe4XZ8ym5JUZGsme_javdWcqih59G2fMfV5BbGqIuE
+
+### Public: list products
+GET {{host}}/api/products
+
+### Admin: create a category
+POST {{host}}/api/categories
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "name": "Snacks", "description": "Chips, nuts, chocolate" }
+
+### Admin: create a product (use a real categoryId)
+POST {{host}}/api/products
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "name": "Chocolate Bar", "price": 1.5, "stockQuantity": 50, "categoryId": 1 }
+
+### Admin: list users
+GET {{host}}/api/admin/users
+Authorization: Bearer {{token}}
+
+### Register a normal customer
+POST {{host}}/api/auth/register
+Content-Type: application/json
+
+{ "fullName": "Ali Test", "email": "ali@test.com", "password": "Test@12345" }
+
+### Customer: add to cart (login as ali first and paste HIS token in @token)
+POST {{host}}/api/cart/items
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "productId": 1, "quantity": 2 }
+
+### Customer: view cart
+GET {{host}}/api/cart
+Authorization: Bearer {{token}}
+
+### Customer trying an admin endpoint -> should return 403
+GET {{host}}/api/admin/users
+Authorization: Bearer {{token}}
