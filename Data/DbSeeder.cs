@@ -19,9 +19,11 @@ public static class DbSeeder
 
         // 2) First admin (credentials come from appsettings -> "Seed")
         var adminEmail = config["Seed:AdminEmail"] ?? "admin@market.local";
-        var adminPassword = config["Seed:AdminPassword"] ?? "Admin@12345";
         if (await userManager.FindByEmailAsync(adminEmail) is null)
         {
+            var adminPassword = config["Seed:AdminPassword"]
+                ?? throw new InvalidOperationException(
+                    "Missing Seed:AdminPassword. Use: dotnet user-secrets set \"Seed:AdminPassword\" \"...\"");
             var admin = new AppUser { UserName = adminEmail, Email = adminEmail, FullName = "Store Admin", EmailConfirmed = true };
             var result = await userManager.CreateAsync(admin, adminPassword);
             if (result.Succeeded)

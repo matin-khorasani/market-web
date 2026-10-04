@@ -6,10 +6,10 @@
 POST {{host}}/api/auth/login
 Content-Type: application/json
 
-{ "email": "admin@market.local", "password": "Admin@12345" }
+{ "email": "admin@market.local", "password": "password-admin" }
 
 ### 2) Paste the accessToken from the response here:
-@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwiZW1haWwiOiJhZG1pbkBtYXJrZXQubG9jYWwiLCJuYW1lIjoiU3RvcmUgQWRtaW4iLCJqdGkiOiIzMTAyNmRkMC0wZjJhLTRlM2QtYTNhOS1mNjRjN2RlOTNiNTAiLCJyb2xlIjoiQWRtaW4iLCJleHAiOjE3OTA4NjA2MTUsImlzcyI6Ik1hcmtldFdlcCIsImF1ZCI6Ik1hcmtldFdlcENsaWVudHMifQ.MGe4XZ8ym5JUZGsme_javdWcqih59G2fMfV5BbGqIuE
+@token = 
 
 ### Public: list products
 GET {{host}}/api/products
@@ -51,4 +51,25 @@ Authorization: Bearer {{token}}
 
 ### Customer trying an admin endpoint -> should return 403
 GET {{host}}/api/admin/users
-Authorization: Bearer {{token}}
+Authorization: Bearer {{$bearerToken}}
+
+### Login as a normal user (جواب رو ببین و refreshToken رو کپی کن)
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{ "email": "ali@test.com", "password": "Test@12345" }
+
+### Refresh token رو اینجا بذار (بعد از هر درخواست مقدار جدید رو جایگزین کن)
+@refreshToken =
+
+### Refresh
+POST {{host}}/api/auth/refresh
+Content-Type: application/json
+
+{ "refreshToken": "{{refreshToken}}" }
+
+### Logout
+POST {{host}}/api/auth/logout
+Content-Type: application/json
+
+{ "refreshToken": "{{refreshToken}}" }

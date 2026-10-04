@@ -37,7 +37,13 @@ public class LoginDto
     [Required] public string Password { get; set; } = string.Empty;
 }
 
-public record AuthResponse(string AccessToken, DateTime ExpiresAtUtc, int UserId, string Email, IList<string> Roles);
+public record AuthResponse(string AccessToken, DateTime ExpiresAtUtc, string RefreshToken,
+                           int UserId, string Email, IList<string> Roles);
+
+public class RefreshRequestDto
+{
+    [Required] public string RefreshToken { get; set; } = string.Empty;
+}
 
 // ---------- Admin: users ----------
 public record UserDto(int Id, string FullName, string Email, List<string> Roles);

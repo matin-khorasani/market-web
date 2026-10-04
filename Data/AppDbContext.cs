@@ -11,6 +11,7 @@ public class AppDbContext : IdentityDbContext<AppUser, IdentityRole<int>, int>
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<Cart> Carts => Set<Cart>();
     public DbSet<CartItem> CartItems => Set<CartItem>();
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -43,5 +44,14 @@ public class AppDbContext : IdentityDbContext<AppUser, IdentityRole<int>, int>
             .WithMany(c => c.Products)
             .HasForeignKey(p => p.CategoryId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<RefreshToken>(e =>
+        {
+            e.HasOne<AppUser>().WithMany().HasForeignKey(t => t.UserId)
+             .OnDelete(DeleteBehavior.Cascade);                  // حذف کاربر = حذف توکن‌هاش
+            e.Property(t => t.TokenHash).HasMaxLength(64);       // هش SHA-256 به شکل hex = ۶۴ کاراکتر
+            e.Property(t => t.ReplacedByTokenHash).HasMaxLength(64);
+            e.HasIndex(t => t.TokenHash).IsUnique();             // جستجو با هش سریع و یکتا باشه
+        });
     }
 }

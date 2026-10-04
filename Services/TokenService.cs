@@ -1,5 +1,6 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
@@ -7,6 +8,8 @@ using Microsoft.IdentityModel.Tokens;
 public interface ITokenService
 {
     (string Token, DateTime ExpiresAtUtc) CreateAccessToken(AppUser user, IList<string> roles);
+    (string Token, string TokenHash, DateTime ExpiresAtUtc) CreateRefreshToken();
+    string Hash(string token);
 }
 
 public class TokenService : ITokenService
@@ -16,13 +19,12 @@ public class TokenService : ITokenService
 
     public (string Token, DateTime ExpiresAtUtc) CreateAccessToken(AppUser user, IList<string> roles)
     {
-        // Claims = the facts about the user stored INSIDE the token (never put secrets here!)
         var claims = new List<Claim>
         {
             new("sub", user.Id.ToString()),
             new("email", user.Email ?? ""),
             new("name", user.FullName),
-            new("jti", Guid.NewGuid().ToString())     // unique token id (useful later for Redis blacklist)
+            new("jti", Guid.NewGuid().ToString())
         };
         claims.AddRange(roles.Select(r => new Claim("role", r)));
 
@@ -39,4 +41,14 @@ public class TokenService : ITokenService
 
         return (new JwtSecurityTokenHandler().WriteToken(token), expires);
     }
+
+    // یک رشته‌ی تصادفی امن (۶۴ بایت). این JWT نیست، فقط یک "شناسه‌ی مخفی" است.
+    public (string Token, string TokenHash, DateTime ExpiresAtUtc) CreateRefreshToken()
+    {
+        var token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
+        return (token, Hash(token), DateTime.UtcNow.AddDays(_settings.RefreshTokenDays));
+    }
+
+    public string Hash(string token) =>
+        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
 }
