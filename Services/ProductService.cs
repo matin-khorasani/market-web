@@ -12,8 +12,18 @@ public interface IProductService
 
 public class ProductService : IProductService
 {
-    private readonly AppDbContext _db;   // injected by the DI container
-    public ProductService(AppDbContext db) => _db = db;
+    private const string AllKey = "products:all";
+    private static string ItemKey(int id) => $"product:{id}";
+    private static readonly TimeSpan Ttl = TimeSpan.FromMinutes(5);
+
+    private readonly AppDbContext _db;       // injected by the DI container
+    private readonly ICacheService _cache;
+
+    public ProductService(AppDbContext db, ICacheService cache)
+    {
+        _db = db;
+        _cache = cache;
+    }
 
     // Select(...) projects straight to the DTO: SQL only fetches the columns we need
     private static readonly Expression<Func<Product, ProductDto>> ToDto = p => new ProductDto(
@@ -22,18 +32,37 @@ public class ProductService : IProductService
 
     public async Task<List<ProductDto>> GetAllAsync(int? categoryId, string? search)
     {
+        // فقط لیست کامل (بدون فیلتر) کش می‌شه، چون ترکیب‌های جستجو بی‌نهایته
+        var cacheable = !categoryId.HasValue && string.IsNullOrWhiteSpace(search);
+        if (cacheable)
+        {
+            var cached = await _cache.GetAsync<List<ProductDto>>(AllKey);
+            if (cached is not null) return cached;
+        }
+
         var q = _db.Products.AsNoTracking().AsQueryable();
         if (categoryId.HasValue) q = q.Where(p => p.CategoryId == categoryId);
         if (!string.IsNullOrWhiteSpace(search)) q = q.Where(p => p.Name.Contains(search));
 
-        return await q.OrderBy(p => p.Name).Select(ToDto).ToListAsync();
+        var list = await q.OrderBy(p => p.Name).Select(ToDto).ToListAsync();
+
+        if (cacheable) await _cache.SetAsync(AllKey, list, Ttl);
+        return list;
     }
 
-    public Task<ProductDto?> GetAsync(int id) =>
-       _db.Products.AsNoTracking()
-           .Where(p => p.Id == id)      // 1) اول فیلتر روی جدول اصلی
-           .Select(ToDto)               // 2) بعد تبدیل به DTO
-           .FirstOrDefaultAsync();
+    public async Task<ProductDto?> GetAsync(int id)
+    {
+        var cached = await _cache.GetAsync<ProductDto>(ItemKey(id));
+        if (cached is not null) return cached;
+
+        var dto = await _db.Products.AsNoTracking()
+            .Where(p => p.Id == id)      // 1) اول فیلتر روی جدول اصلی
+            .Select(ToDto)               // 2) بعد تبدیل به DTO
+            .FirstOrDefaultAsync();
+
+        if (dto is not null) await _cache.SetAsync(ItemKey(id), dto, Ttl);
+        return dto;
+    }
 
     public async Task<(ProductDto? Product, string? Error)> CreateAsync(ProductSaveDto dto)
     {
@@ -42,11 +71,17 @@ public class ProductService : IProductService
 
         var p = new Product
         {
-            Name = dto.Name, Description = dto.Description, Price = dto.Price,
-            StockQuantity = dto.StockQuantity, ImageUrl = dto.ImageUrl, CategoryId = dto.CategoryId
+            Name = dto.Name,
+            Description = dto.Description,
+            Price = dto.Price,
+            StockQuantity = dto.StockQuantity,
+            ImageUrl = dto.ImageUrl,
+            CategoryId = dto.CategoryId
         };
         _db.Products.Add(p);
         await _db.SaveChangesAsync();
+
+        await _cache.RemoveAsync(AllKey);   // لیست کامل دیگه قدیمیه
         return (await GetAsync(p.Id), null);
     }
 
@@ -60,6 +95,8 @@ public class ProductService : IProductService
         p.Name = dto.Name; p.Description = dto.Description; p.Price = dto.Price;
         p.StockQuantity = dto.StockQuantity; p.ImageUrl = dto.ImageUrl; p.CategoryId = dto.CategoryId;
         await _db.SaveChangesAsync();
+
+        await _cache.RemoveAsync(AllKey, ItemKey(id));
         return (true, null);
     }
 
@@ -72,6 +109,8 @@ public class ProductService : IProductService
 
         _db.Products.Remove(p);
         await _db.SaveChangesAsync();
+
+        await _cache.RemoveAsync(AllKey, ItemKey(id));
         return (true, null);
     }
 }
