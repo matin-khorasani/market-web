@@ -6,7 +6,7 @@
 POST {{host}}/api/auth/login
 Content-Type: application/json
 
-{ "email": "admin@market.local", "password": "password-admin" }
+{ "email": "admin@market.local", "password": "" }
 
 ### 2) Paste the accessToken from the response here:
 @token = 

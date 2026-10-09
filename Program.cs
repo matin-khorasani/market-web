@@ -63,6 +63,12 @@ builder.Services.AddSingleton<ICacheService, RedisCacheService>();
 
 builder.Services.AddControllers()
     .AddJsonOptions(o => o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
+builder.Services
+    .AddGraphQLServer()
+    .AddQueryType<Query>()
+    .AddFiltering()
+    .AddSorting()
+    .AddProjections();
 
 var app = builder.Build();
 
@@ -77,5 +83,6 @@ app.UseHttpsRedirection();
 app.UseAuthentication();   // 1) who are you?  (reads & validates the JWT)
 app.UseAuthorization();    // 2) are you allowed? ([Authorize], roles)
 app.MapControllers();
+app.MapGraphQL();
 
 app.Run();
