@@ -55,6 +55,7 @@ builder.Services.AddAuthorization();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<ICartService, CartService>();
+builder.Services.AddScoped<IUserAdminService, UserAdminService>();
 // Singleton: اتصال به Redis گرونه و باید بین همه‌ی درخواست‌ها مشترک باشه
 builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
     ConnectionMultiplexer.Connect(builder.Configuration.GetConnectionString("Redis")
@@ -65,7 +66,9 @@ builder.Services.AddControllers()
     .AddJsonOptions(o => o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services
     .AddGraphQLServer()
+    .AddAuthorization()
     .AddQueryType<Query>()
+    .AddMutationType<Mutation>()
     .AddFiltering()
     .AddSorting()
     .AddProjections();

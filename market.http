@@ -6,7 +6,7 @@
 POST {{host}}/api/auth/login
 Content-Type: application/json
 
-{ "email": "admin@market.local", "password": "" }
+{ "email": "admin@market.local", "password": "Mm13851385@" }
 
 ### 2) Paste the accessToken from the response here:
 @token = 
@@ -36,7 +36,7 @@ Authorization: Bearer {{token}}
 POST {{host}}/api/auth/register
 Content-Type: application/json
 
-{ "fullName": "Ali Test", "email": "ali@test.com", "password": "Test@12345" }
+{ "fullName": "matin", "email": "matin@test.com", "password": "Test@12345" }
 
 ### Customer: add to cart (login as ali first and paste HIS token in @token)
 POST {{host}}/api/cart/items
