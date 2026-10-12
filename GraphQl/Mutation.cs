@@ -53,4 +53,16 @@ public class Mutation
 
     private static GraphQLException Fail(string message, string code)
         => new(ErrorBuilder.New().SetMessage(message).SetCode(code).Build());
+
+    [Authorize(Roles = new[] { nameof(UserRole.Admin) })]
+    public async Task<OrderDto> UpdateOrderStatus(
+    int id,
+    OrderStatus status,
+    [Service] IOrderService orders)
+    {
+        var (found, order, error) = await orders.UpdateStatusAsync(id, status);
+        if (!found) throw Fail("Order not found.", "NOT_FOUND");
+        if (error is not null) throw Fail(error, "BAD_REQUEST");
+        return order!;
+    }
 }

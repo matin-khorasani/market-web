@@ -1,5 +1,6 @@
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-
+using HotChocolate;
 public class Product
 {
     public int Id { get; set; }
@@ -14,4 +15,7 @@ public class Product
 
     public int CategoryId { get; set; }
     public Category Category { get; set; } = null!;
+    [Timestamp]       // یعنی ستون rowversion توی SQL Server
+    [GraphQLIgnore]   // به کلاینت GraphQL نشون داده نشه
+    public byte[] RowVersion { get; set; } = null!;
 }

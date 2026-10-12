@@ -64,6 +64,7 @@ builder.Services.AddSingleton<ICacheService, RedisCacheService>();
 
 builder.Services.AddControllers()
     .AddJsonOptions(o => o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
+builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services
     .AddGraphQLServer()
     .AddAuthorization()
@@ -71,7 +72,8 @@ builder.Services
     .AddMutationType<Mutation>()
     .AddFiltering()
     .AddSorting()
-    .AddProjections();
+    .AddProjections()
+    .AddErrorFilter<GraphQlErrorFilter>();
 
 var app = builder.Build();
 
@@ -82,6 +84,7 @@ using (var scope = app.Services.CreateScope())
 }
 
 // ---- Middleware pipeline (ORDER MATTERS) ----
+app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.UseHttpsRedirection();
 app.UseAuthentication();   // 1) who are you?  (reads & validates the JWT)
 app.UseAuthorization();    // 2) are you allowed? ([Authorize], roles)

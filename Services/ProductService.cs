@@ -12,8 +12,8 @@ public interface IProductService
 
 public class ProductService : IProductService
 {
-    private const string AllKey = "products:all";
-    private static string ItemKey(int id) => $"product:{id}";
+    internal const string AllKey = "products:all";
+    internal static string ItemKey(int id) => $"product:{id}";
     private static readonly TimeSpan Ttl = TimeSpan.FromMinutes(5);
 
     private readonly AppDbContext _db;       // injected by the DI container

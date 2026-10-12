@@ -12,6 +12,8 @@ public class AppDbContext : IdentityDbContext<AppUser, IdentityRole<int>, int>
     public DbSet<Cart> Carts => Set<Cart>();
     public DbSet<CartItem> CartItems => Set<CartItem>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<Order> Orders => Set<Order>();
+    public DbSet<OrderItem> OrderItems => Set<OrderItem>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -52,6 +54,22 @@ public class AppDbContext : IdentityDbContext<AppUser, IdentityRole<int>, int>
             e.Property(t => t.TokenHash).HasMaxLength(64);       // هش SHA-256 به شکل hex = ۶۴ کاراکتر
             e.Property(t => t.ReplacedByTokenHash).HasMaxLength(64);
             e.HasIndex(t => t.TokenHash).IsUnique();             // جستجو با هش سریع و یکتا باشه
+        });
+        modelBuilder.Entity<Order>(e =>
+        {
+            e.Property(o => o.Status).HasConversion<string>().HasMaxLength(20);
+            e.HasOne(o => o.User).WithMany().HasForeignKey(o => o.UserId)
+             .OnDelete(DeleteBehavior.Restrict);
+            e.HasMany(o => o.Items).WithOne(i => i.Order).HasForeignKey(i => i.OrderId)
+             .OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(o => new { o.UserId, o.CreatedAtUtc });
+        });
+
+        modelBuilder.Entity<OrderItem>(e =>
+        {
+            e.Property(i => i.ProductName).HasMaxLength(150);
+            e.HasOne(i => i.Product).WithMany().HasForeignKey(i => i.ProductId)
+             .OnDelete(DeleteBehavior.SetNull);
         });
     }
 }

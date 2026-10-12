@@ -52,7 +52,8 @@ public class AdminUsersController : ControllerBase
 
         var user = await _users.FindByIdAsync(id.ToString());
         if (user is null) return NotFound();
-
+        if (await _db.Orders.AnyAsync(o => o.UserId == id))
+            return BadRequest("This user has orders and cannot be deleted.");
         await _users.DeleteAsync(user);   // the user's cart is deleted by cascade
         return NoContent();
     }

@@ -67,3 +67,6 @@ public class CartItemUpdateDto
 {
     [Range(1, 1000)] public int Quantity { get; set; }
 }
+// ---------- Orders ----------
+public record OrderItemDto(int? ProductId, string ProductName, decimal UnitPrice, int Quantity, decimal LineTotal);
+public record OrderDto(int Id, DateTime CreatedAtUtc, OrderStatus Status, decimal Total, List<OrderItemDto> Items);

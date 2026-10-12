@@ -33,4 +33,18 @@ public class Query
     [Authorize(Roles = new[] { nameof(UserRole.Admin) })]
     public Task<List<UserDto>> GetUsers([Service] IUserAdminService admin)
         => admin.GetAllAsync();
+
+    // کاربر لاگین‌شده: سفارش‌های خودش (همون سرویسی که REST هم استفاده می‌کنه)
+    [Authorize]
+    public Task<List<OrderDto>> GetMyOrders(ClaimsPrincipal principal, [Service] IOrderService orders)
+        => orders.GetMineAsync(principal.GetUserId());
+
+    // ادمین: همه‌ی سفارش‌ها، با pagination و فیلتر و مرتب‌سازی (مثل محصولات)
+    [Authorize(Roles = new[] { nameof(UserRole.Admin) })]
+    [UsePaging(DefaultPageSize = 20, MaxPageSize = 100, IncludeTotalCount = true)]
+    [UseProjection]
+    [UseFiltering]
+    [UseSorting]
+    public IQueryable<Order> GetOrders([Service] AppDbContext db)
+        => db.Orders.AsNoTracking();
 }

@@ -1,0 +1,46 @@
+services:
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    platform: linux/amd64          # روی مک‌های Apple Silicon هم کار کنه
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${SA_PASSWORD}
+    ports:
+      - "14330:1433"               # پورت بیرونی غیرمعمول، تا با SQL Server نصب‌شده تداخل نکنه
+    volumes:
+      - sqldata:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -Q \"SELECT 1\" || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "16379:6379"               # پورت بیرونی غیرمعمول، تا با Redis لوکال تداخل نکنه
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__DefaultConnection: "Server=db;Database=MarketDb;User Id=sa;Password=${SA_PASSWORD};TrustServerCertificate=True"
+      ConnectionStrings__Redis: "redis:6379,abortConnect=false"
+      Jwt__Key: ${JWT_KEY}
+      Seed__AdminPassword: ${ADMIN_PASSWORD}
+    ports:
+      - "${API_PORT:-8080}:8080"
+
+volumes:
+  sqldata:
