@@ -1,114 +1,44 @@
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.RateLimiting;
 
+// Controller فقط ورودی رو به AuthService می‌ده و نتیجه رو به پاسخ HTTP تبدیل می‌کنه.
+// همه‌ی خطاها ProblemDetails هستن (مثل بقیه‌ی API).
 [ApiController]
 [Route("api/auth")]
+[EnableRateLimiting("auth")]
 public class AuthController : ControllerBase
 {
-    private readonly UserManager<AppUser> _users;
-    private readonly ITokenService _tokens;
-    private readonly AppDbContext _db;
-
-    public AuthController(UserManager<AppUser> users, ITokenService tokens, AppDbContext db)
-    {
-        _users = users;
-        _tokens = tokens;
-        _db = db;
-    }
+    private readonly IAuthService _auth;
+    public AuthController(IAuthService auth) => _auth = auth;
 
     [HttpPost("register")]
-    public async Task<ActionResult<AuthResponse>> Register(RegisterDto dto)
-    {
-        var user = new AppUser { UserName = dto.Email, Email = dto.Email, FullName = dto.FullName };
-        var result = await _users.CreateAsync(user, dto.Password);
-        if (!result.Succeeded)
-            return BadRequest(result.Errors.Select(e => e.Description));
-
-        await _users.AddToRoleAsync(user, nameof(UserRole.Consumer));
-        return Ok(await IssueTokensAsync(user));
-    }
+    public async Task<ActionResult<AuthResponse>> Register(RegisterDto dto) =>
+        ToActionResult(await _auth.RegisterAsync(dto));
 
     [HttpPost("login")]
-    public async Task<ActionResult<AuthResponse>> Login(LoginDto dto)
-    {
-        var user = await _users.FindByEmailAsync(dto.Email);
-        if (user is null || !await _users.CheckPasswordAsync(user, dto.Password))
-            return Unauthorized("Invalid email or password.");
+    public async Task<ActionResult<AuthResponse>> Login(LoginDto dto) =>
+        ToActionResult(await _auth.LoginAsync(dto));
 
-        return Ok(await IssueTokensAsync(user));
-    }
-
-    // با refresh token معتبر، یک جفت توکن جدید می‌گیری (rotation: توکن قبلی باطل می‌شه)
     [HttpPost("refresh")]
-    public async Task<ActionResult<AuthResponse>> Refresh(RefreshRequestDto dto)
-    {
-        var hash = _tokens.Hash(dto.RefreshToken);
-        var stored = await _db.RefreshTokens.FirstOrDefaultAsync(t => t.TokenHash == hash);
-        if (stored is null)
-            return Unauthorized("Invalid refresh token.");
+    public async Task<ActionResult<AuthResponse>> Refresh(RefreshRequestDto dto) =>
+        ToActionResult(await _auth.RefreshAsync(dto.RefreshToken));
 
-        // توکنی که قبلاً باطل شده دوباره استفاده شده = احتمالاً دزدیده شده، پس همه‌ی توکن‌های کاربر باطل می‌شن
-        if (stored.RevokedAtUtc is not null)
-        {
-            await RevokeAllForUserAsync(stored.UserId);
-            return Unauthorized("Refresh token was already used. Please log in again.");
-        }
-
-        if (stored.ExpiresAtUtc <= DateTime.UtcNow)
-            return Unauthorized("Refresh token expired.");
-
-        var user = await _users.FindByIdAsync(stored.UserId.ToString());
-        if (user is null)
-            return Unauthorized("Invalid refresh token.");
-
-        return Ok(await IssueTokensAsync(user, replacing: stored));
-    }
-
-    // همیشه ۲۰۴ برمی‌گردونه تا معلوم نشه توکن واقعاً وجود داشته یا نه
     [HttpPost("logout")]
     public async Task<IActionResult> Logout(RefreshRequestDto dto)
     {
-        var hash = _tokens.Hash(dto.RefreshToken);
-        var stored = await _db.RefreshTokens.FirstOrDefaultAsync(t => t.TokenHash == hash);
-        if (stored is not null && stored.RevokedAtUtc is null)
-        {
-            stored.RevokedAtUtc = DateTime.UtcNow;
-            await _db.SaveChangesAsync();
-        }
+        await _auth.LogoutAsync(dto.RefreshToken);
         return NoContent();
     }
 
-    private async Task<AuthResponse> IssueTokensAsync(AppUser user, RefreshToken? replacing = null)
+    private ActionResult ToActionResult(AuthResult r) => r.Error switch
     {
-        var roles = await _users.GetRolesAsync(user);
-        var (accessToken, accessExpires) = _tokens.CreateAccessToken(user, roles);
-        var (refreshToken, refreshHash, refreshExpires) = _tokens.CreateRefreshToken();
-
-        _db.RefreshTokens.Add(new RefreshToken
-        {
-            UserId = user.Id,
-            TokenHash = refreshHash,
-            CreatedAtUtc = DateTime.UtcNow,
-            ExpiresAtUtc = refreshExpires
-        });
-
-        if (replacing is not null)
-        {
-            replacing.RevokedAtUtc = DateTime.UtcNow;
-            replacing.ReplacedByTokenHash = refreshHash;
-        }
-
-        await _db.SaveChangesAsync();   // توکن جدید و باطل‌شدن قدیمی در یک تراکنش
-        return new AuthResponse(accessToken, accessExpires, refreshToken, user.Id, user.Email!, roles);
-    }
-
-    private async Task RevokeAllForUserAsync(int userId)
-    {
-        var active = await _db.RefreshTokens
-            .Where(t => t.UserId == userId && t.RevokedAtUtc == null)
-            .ToListAsync();
-        foreach (var t in active) t.RevokedAtUtc = DateTime.UtcNow;
-        await _db.SaveChangesAsync();
-    }
+        AuthError.None => Ok(r.Response),
+        AuthError.Validation => Problem(statusCode: 400, title: "Registration failed.", detail: r.Message),
+        AuthError.InvalidCredentials => Problem(statusCode: 401, title: "Invalid email or password."),
+        AuthError.LockedOut => Problem(statusCode: 429, title: "Too many failed attempts. Try again later."),
+        AuthError.InvalidToken => Problem(statusCode: 401, title: "Invalid refresh token."),
+        AuthError.TokenReused => Problem(statusCode: 401, title: "Refresh token was already used. Please log in again."),
+        AuthError.TokenExpired => Problem(statusCode: 401, title: "Refresh token expired."),
+        _ => Problem(statusCode: 500, title: "An unexpected error occurred.")
+    };
 }
