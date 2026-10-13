@@ -15,7 +15,7 @@ public static class DbSeeder
         // 1) Roles from the enum: "Consumer", "Admin"
         foreach (var role in Enum.GetNames<UserRole>())
             if (!await roleManager.RoleExistsAsync(role))
-                await roleManager.CreateAsync(new IdentityRole<int>(role));
+                Check(await roleManager.CreateAsync(new IdentityRole<int>(role)), $"create role '{role}'");
 
         // 2) First admin (credentials come from appsettings -> "Seed")
         var adminEmail = config["Seed:AdminEmail"] ?? "admin@market.local";
@@ -25,9 +25,8 @@ public static class DbSeeder
                 ?? throw new InvalidOperationException(
                     "Missing Seed:AdminPassword. Use: dotnet user-secrets set \"Seed:AdminPassword\" \"...\"");
             var admin = new AppUser { UserName = adminEmail, Email = adminEmail, FullName = "Store Admin", EmailConfirmed = true };
-            var result = await userManager.CreateAsync(admin, adminPassword);
-            if (result.Succeeded)
-                await userManager.AddToRoleAsync(admin, nameof(UserRole.Admin));
+            Check(await userManager.CreateAsync(admin, adminPassword), "create the admin user (check the password rules)");
+            Check(await userManager.AddToRoleAsync(admin, nameof(UserRole.Admin)), "assign the Admin role");
         }
 
         // 3) Sample catalog
@@ -45,5 +44,13 @@ public static class DbSeeder
 
             await db.SaveChangesAsync();
         }
+    }
+
+    // اگه seed شکست بخوره برنامه با پیام روشن متوقف می‌شه، نه اینکه بی‌صدا ادامه بده
+    private static void Check(IdentityResult result, string action)
+    {
+        if (!result.Succeeded)
+            throw new InvalidOperationException(
+                $"Seeding failed to {action}: {string.Join("; ", result.Errors.Select(e => e.Description))}");
     }
 }
