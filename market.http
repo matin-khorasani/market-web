@@ -1,12 +1,12 @@
 # Test file for Visual Studio (open it and click "Send request" above each request).
 # 1) Change the port to yours (see the URL in the browser when you press F5)
-@host = https://localhost:7400
+@host = http://localhost:8080
 
 ### 1) Login as the seeded admin
 POST {{host}}/api/auth/login
 Content-Type: application/json
 
-{ "email": "admin@market.local", "password": "Mm13851385@" }
+{ "email": "admin@market.local", "password": "Admin@12345" }
 
 ### 2) Paste the accessToken from the response here:
 @token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIyIiwiZW1haWwiOiJhbGlAdGVzdC5jb20iLCJuYW1lIjoiQWxpIFRlc3QiLCJqdGkiOiI3NzRmN2JhOS01NmJkLTQ1NzUtOWExYS1kYmI4MzFhOGFlZjYiLCJyb2xlIjoiQ29uc3VtZXIiLCJleHAiOjE3OTE3NjMwNTcsImlzcyI6Ik1hcmtldFdlcCIsImF1ZCI6Ik1hcmtldFdlcENsaWVudHMifQ.FKYUPWy3UaFG6wPDgW-hhXYpxDaqs2THIRLQRXVKKEo

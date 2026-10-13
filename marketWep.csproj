@@ -8,6 +8,14 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="tests/**" />
+    <Content Remove="tests/**" />
+    <None Remove="tests/**" />
+    <EmbeddedResource Remove="tests/**" />
+    <InternalsVisibleTo Include="Market.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="HotChocolate.AspNetCore" Version="16.6.7" />
     <PackageReference Include="HotChocolate.AspNetCore.Authorization" Version="16.6.7" />
     <PackageReference Include="HotChocolate.Data.EntityFramework" Version="16.6.7" />
