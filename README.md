@@ -32,7 +32,7 @@ The first run downloads images and builds the project, which takes a few minutes
 | GraphQL IDE (Nitro) | http://localhost:8080/graphql |
 | REST API | http://localhost:8080/api/... |
 
-**Default admin:** `admin@market.local`, with the password from `ADMIN_PASSWORD` in your `.env` (the example file uses `Admin@12345`).
+**Default admin:** `admin@market.local`, with the password from `ADMIN_PASSWORD` in your `.env` (the example file contains a placeholder: change it before the first run).
 
 On startup the app applies migrations, creates the roles and the admin user, and seeds 3 categories and 4 products.
 
@@ -73,11 +73,11 @@ dotnet run
 ## Features
 
 - Public catalog: categories and products, with search and category filter.
-- Registration and login, access token (15 minutes) and refresh token (7 days).
+- Registration and login, access token (15 minutes) and refresh token (7 days), with login lockout and rate limiting.
 - Shopping cart per user.
 - Checkout that turns the cart into an order, decreases stock and clears the cart atomically.
 - Order history for customers.
-- Admin portal (REST and GraphQL): manage products and categories, manage users and roles, list orders with filtering and paging, change order status.
+- Admin portal (API only, no web UI): in REST manage products, categories, users and roles; in GraphQL manage products and order status and query users and orders.
 
 ## Authentication and authorization
 
@@ -86,6 +86,7 @@ dotnet run
 - **Refresh token:** a random value, valid for 7 days. Only its **hash** is stored in the database.
 - **Rotation:** every refresh issues a new pair and revokes the old refresh token. If a revoked refresh token is presented again (a sign of theft), all active refresh tokens of that user are revoked.
 - **Logout** revokes the given refresh token and always returns `204`.
+- **Brute-force protection:** after 5 wrong passwords an account is locked for 5 minutes (ASP.NET Identity lockout), and `/api/auth/*` is limited to 10 requests per minute per IP. Wrong password and unknown email return the same error.
 - **The user id always comes from the token**, never from the URL or the request body, so users can only access their own cart and orders.
 
 ## REST API
@@ -111,7 +112,7 @@ dotnet run
 | PUT | `/api/admin/users/{id}/role` | Admin | Change a user's role |
 | DELETE | `/api/admin/users/{id}` | Admin | Delete a user |
 
-Errors are returned as **ProblemDetails** (`application/problem+json`) with a `traceId` that matches the server log.
+Errors, including authentication errors, are returned as **ProblemDetails** (`application/problem+json`) with a `traceId` that matches the server log.
 
 ## GraphQL API
 
@@ -200,7 +201,7 @@ Delete behavior is chosen per relationship:
 ```
 Controllers/   REST controllers (thin)
 GraphQl/       Query, Mutation, GraphQL error filter
-Services/      Business logic (products, cart, orders, tokens, cache, admin users)
+Services/      Business logic (auth, products, categories, cart, orders, tokens, cache, admin users)
 Models/        EF Core entities
 Dtos/          Request and response contracts
 Data/          AppDbContext and the seeder
@@ -208,14 +209,23 @@ Middleware/    Global exception handling
 Migrations/    EF Core migrations
 Settings/      Strongly typed configuration (JwtSettings)
 Extensions/    Helpers (for example reading the user id from claims)
+tests/         xUnit tests for the services (Market.Tests)
 ```
+
+## Tests
+
+```bash
+dotnet test tests/Market.Tests
+```
+
+The tests cover the services (checkout, stock, order status rules, auth, lockout, refresh token rotation, role changes, cache invalidation) with an in-memory database. SQL Server's `rowversion` concurrency check is not simulated by the in-memory provider, so the real concurrent-checkout behavior still needs a test against SQL Server (for example with Testcontainers).
 
 ## Known limitations and next steps
 
 - Payments are not implemented: an order is created as `Pending`.
 - An access token stays valid until it expires (15 minutes) even after logout. Planned: blacklist the token `jti` in Redis with a TTL.
-- No rate limiting on login yet.
+- Rate limiting is per IP and kept in memory: fine for one instance. Behind a reverse proxy configure forwarded headers, and use a shared store when running several instances.
+- The admin portal is API only; there is no web UI. GraphQL does not cover categories, role changes or user deletion (REST does).
 - `GET /api/products` is not paged in REST (GraphQL is).
 - No GraphQL query depth limit yet.
-- No automated tests yet.
 - Migrations are applied at startup, which is convenient here; a production setup would run them as a separate deployment step.
